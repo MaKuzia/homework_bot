@@ -1,20 +1,20 @@
 import logging
-import sys
 import os
+import sys
 import time
 from http import HTTPStatus
+
+from dotenv import load_dotenv
 
 import requests
 
 import telegram
 
-from dotenv import load_dotenv
-
 load_dotenv()
 
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
-TELEGRAM_CHAT_ID = 1932090036
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
 RETRY_PERIOD = 600
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
@@ -38,9 +38,8 @@ handler.setFormatter(formatter)
 
 def check_tokens():
     """Доступность переменных окружения."""
-    if (PRACTICUM_TOKEN is None or TELEGRAM_TOKEN is None
-       or TELEGRAM_CHAT_ID is None):
-        return True
+    tokens = [PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]
+    return not all(tokens)
 
 
 def get_api_answer(timestamp):
@@ -67,7 +66,7 @@ def check_response(response):
     Параметры функции:
     response - ответ API(тип данных Python)
     """
-    if type(response) is not dict:
+    if not isinstance(response, dict):
         logger.error(f'{TypeError}: Ожидался dict')
         raise TypeError('Ожидался dict')
 
@@ -77,7 +76,7 @@ def check_response(response):
     if 'current_date' not in response:
         raise Exception('Отсутствие ключа current_date в ответе API')
 
-    if type(response['homeworks']) is not list:
+    if not isinstance(response['homeworks'], list):
         logger.error(f'{TypeError}: Ожидался list')
         raise TypeError('Ожидался list')
 
@@ -105,6 +104,9 @@ def parse_status(homework):
     try:
         verdict = HOMEWORK_VERDICTS[homework['status']]
     except Exception as error:
+        if not homework['status']:
+            logger.error('Под ключом "status" отсутсвует значение')
+            raise Exception(f'{error}')
         logger.error(f'{error}: Неожиданный статус домашней работы')
         raise Exception(f'{error}')
 
@@ -118,11 +120,14 @@ def send_message(bot, message):
     bot - экземпляр класса Bot
     message - текст сообщения
     """
+    logger.debug('Началась отправка сообщения')
+
     try:
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-        logger.debug('Сообщеине отправлено')
     except Exception as error:
         logger.error(f'{error}: Cбой при отправке сообщения')
+
+    logger.debug('Сообщеине отправлено')
 
 
 def main():
@@ -132,7 +137,7 @@ def main():
         logger.critical(
             f'{ValueError}: отсутствуют обязательные переменные окружения'
         )
-        raise ValueError
+        sys.exit('Отсутствуют обязательные переменные окружения')
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
     while True:
