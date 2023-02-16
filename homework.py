@@ -39,7 +39,7 @@ handler.setFormatter(formatter)
 def check_tokens():
     """Доступность переменных окружения."""
     tokens = [PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]
-    return not all(tokens)
+    return all(tokens)
 
 
 def get_api_answer(timestamp):
@@ -133,7 +133,7 @@ def send_message(bot, message):
 def main():
     """Основная логика работы бота."""
     current_message = ''
-    if check_tokens():
+    if not check_tokens():
         logger.critical(
             f'{ValueError}: отсутствуют обязательные переменные окружения'
         )
